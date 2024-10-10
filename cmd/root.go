@@ -1,20 +1,29 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "cc-json-parser",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+var jsonParser bool
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+var rootCmd = &cobra.Command{
+	Use:   "ccjp",
+	Short: "Another json parser",
+	Long: `A longer description that spans multiple lines and likely contains
+				examples and usage of using your application. For example:
+
+				Cobra is a CLI library for Go that empowers applications.
+				This application is a tool to generate the needed files
+				to quickly create a Cobra application.`,
+
+	Run: func(cmd *cobra.Command, args []string) {
+		if jsonParser {
+			fmt.Println(args[0])
+		}
+	},
 }
 
 func Execute() {
@@ -25,5 +34,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolVarP(&jsonParser, "json-parser", "j", false, "Check if json is valid")
 }
