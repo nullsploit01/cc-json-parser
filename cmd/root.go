@@ -22,10 +22,29 @@ var rootCmd = &cobra.Command{
 				to quickly create a Cobra application.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
+		var inputFile *os.File
+
+		if len(args) < 1 {
+			cmd.PrintErr("Error: A file name is required as an argument.\n")
+			cmd.Usage()
+			return
+		}
+
+		if inputFile == nil {
+			file, err := os.Open(args[0])
+			if err != nil {
+				cmd.PrintErrf("Error reading file: %v\n", err)
+				return
+			}
+
+			inputFile = file
+		}
+
 		currTime := time.Now()
 		if jsonParser {
-			p := parser.NewParser(args[0])
-			err := p.Parse()
+			data, err := os.ReadFile(args[0])
+			p := parser.NewParser(string(data))
+			err = p.Parse()
 			if err != nil {
 				fmt.Println("Error parsing JSON:", err)
 				os.Exit(1)
