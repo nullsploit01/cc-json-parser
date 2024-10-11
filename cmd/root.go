@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/nullsploit01/cc-json-parser/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +22,16 @@ var rootCmd = &cobra.Command{
 				to quickly create a Cobra application.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
+		currTime := time.Now()
 		if jsonParser {
-			fmt.Println(args[0])
+			p := parser.NewParser(args[0])
+			err := p.Parse()
+			if err != nil {
+				fmt.Println("Error parsing JSON:", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("json parsed successfully in %f seconds!\n", time.Since(currTime).Seconds())
 		}
 	},
 }
