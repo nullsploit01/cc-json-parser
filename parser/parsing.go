@@ -95,12 +95,12 @@ func (p *Parser) parseValue() (interface{}, error) {
 		}
 		return obj, nil
 
-	// case TknLeftBracket:
-	// 	arr, err := p.parseArray()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return arr, nil
+	case TknLeftBracket: // Handle arrays
+		arr, err := p.parseArray()
+		if err != nil {
+			return nil, err
+		}
+		return arr, nil
 
 	case TknBoolean:
 		boolean := p.curToken.Literal == "true"
@@ -112,6 +112,31 @@ func (p *Parser) parseValue() (interface{}, error) {
 		return nil, nil
 
 	default:
-		return nil, fmt.Errorf("unexpected token type %v when expecting a value", p.curToken.Type)
+		return nil, fmt.Errorf("unexpected token type %v when expecting a value", p.curToken.Literal)
 	}
+}
+
+func (p *Parser) parseArray() ([]interface{}, error) {
+	var array []interface{}
+
+	p.nextToken()
+
+	for p.curToken.Type != TknRightBracket {
+		value, err := p.parseValue()
+		if err != nil {
+			return nil, err
+		}
+
+		array = append(array, value)
+
+		if p.curToken.Type == TknComma {
+			p.nextToken()
+		} else if p.curToken.Type != TknRightBracket {
+			return nil, fmt.Errorf("expected comma or closing bracket, got '%s'", p.curToken.Literal)
+		}
+	}
+
+	p.nextToken()
+
+	return array, nil
 }
