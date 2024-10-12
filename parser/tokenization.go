@@ -51,7 +51,6 @@ func (l *Lexer) NextToken() Token {
 	var tok Token
 
 	l.skipWhitespace()
-
 	switch l.ch {
 	case '{':
 		tok = Token{TknLeftBrace, "{"}
@@ -65,6 +64,9 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{TknColon, ":"}
 	case ',':
 		tok = Token{TknComma, ","}
+	case '"':
+		tok.Type = TknString
+		tok.Literal = l.readString()
 	case 0:
 		tok.Literal = ""
 		tok.Type = TknEOF
@@ -84,6 +86,20 @@ func (l *Lexer) NextToken() Token {
 
 	l.readChar()
 	return tok
+}
+
+func (l *Lexer) readString() string {
+	position := l.position + 1
+	for {
+		l.readChar()
+		if l.ch == '"' {
+			break
+		}
+	}
+
+	str := l.input[position:l.position]
+	// l.readChar()
+	return str
 }
 
 func (l *Lexer) skipWhitespace() {
