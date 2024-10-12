@@ -1,5 +1,7 @@
 package parser
 
+import "strconv"
+
 // Define token types
 type TokenType int
 
@@ -75,7 +77,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Literal = l.readIdentifier()
 			tok.Type = l.lookupIdent(tok.Literal)
 			return tok
-		} else if isDigit(l.ch) {
+		} else if l.ch == '-' || isDigit(l.ch) {
 			tok.Type = TknNumber
 			tok.Literal = l.readNumber()
 			return tok
@@ -89,17 +91,47 @@ func (l *Lexer) NextToken() Token {
 }
 
 func (l *Lexer) readString() string {
-	position := l.position + 1
+	var result []byte
 	for {
 		l.readChar()
 		if l.ch == '"' {
 			break
 		}
+		if l.ch == '\\' {
+			l.readChar() // Escape sequence
+			switch l.ch {
+			case '"':
+				result = append(result, '"')
+			case '\\':
+				result = append(result, '\\')
+			case 'b':
+				result = append(result, '\b')
+			case 'f':
+				result = append(result, '\f')
+			case 'n':
+				result = append(result, '\n')
+			case 'r':
+				result = append(result, '\r')
+			case 't':
+				result = append(result, '\t')
+			case 'u':
+				// Handle Unicode sequence
+				hexValue := l.input[l.position+1 : l.position+5]
+				r, err := strconv.ParseInt(hexValue, 16, 32)
+				if err == nil {
+					result = append(result, byte(r))
+				}
+				l.position += 4 // Move past the 4 hex digits
+				l.readPosition += 4
+			default:
+				// Handle invalid escape sequences
+				result = append(result, '\\', l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
+		}
 	}
-
-	str := l.input[position:l.position]
-	// l.readChar()
-	return str
+	return string(result)
 }
 
 func (l *Lexer) skipWhitespace() {
@@ -126,9 +158,32 @@ func isDigit(ch byte) bool {
 
 func (l *Lexer) readNumber() string {
 	position := l.position
+
+	// Check if the number starts with a '-' sign
+	if l.ch == '-' {
+		l.readChar() // Move past the '-' sign
+	}
+
+	// Read the main part of the number (digits and optional decimal point)
 	for isDigit(l.ch) || l.ch == '.' {
 		l.readChar()
 	}
+
+	// Handle scientific notation (e.g., 1.23e+10)
+	if l.ch == 'e' || l.ch == 'E' {
+		l.readChar() // Move past the 'e' or 'E'
+
+		// Handle the optional '+' or '-' sign in the exponent
+		if l.ch == '-' || l.ch == '+' {
+			l.readChar()
+		}
+
+		// Read the exponent part (must be digits)
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	}
+
 	return l.input[position:l.position]
 }
 

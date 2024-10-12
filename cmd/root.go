@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 		if jsonParser {
 			data, err := os.ReadFile(args[0])
 			p := parser.NewParser(string(data))
-			err = p.Parse()
+			_, err = p.Parse()
 			if err != nil {
 				fmt.Println("Error parsing JSON:", err)
 				os.Exit(1)

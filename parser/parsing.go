@@ -19,13 +19,14 @@ func NewParser(data string) *Parser {
 	return p
 }
 
-func (p *Parser) Parse() error {
-	if p.curToken.Type != TknLeftBrace {
-		return fmt.Errorf("expected left brace, found %s", p.curToken.Literal)
+func (p *Parser) Parse() (interface{}, error) {
+	if p.curToken.Type == TknLeftBrace {
+		return p.parseObject()
+	} else if p.curToken.Type == TknLeftBracket {
+		return p.parseArray()
+	} else {
+		return nil, fmt.Errorf("expected '{' or '[', found '%s'", p.curToken.Literal)
 	}
-
-	_, err := p.parseObject()
-	return err
 }
 
 func (p *Parser) parseObject() (map[string]interface{}, error) {
