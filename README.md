@@ -36,6 +36,12 @@ Compile the project using:
 go build -o ccjp
 ```
 
+### Testing
+
+```bash
+go test ./...
+```
+
 ### Usage
 
 To run the utility, you can either validate a JSON file or run predefined tests. The command-line interface (CLI) provides flags for different operations:
