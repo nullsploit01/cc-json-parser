@@ -16,59 +16,68 @@ var runTests bool
 
 var rootCmd = &cobra.Command{
 	Use:   "ccjp",
-	Short: "Another json parser",
-	Long: `A longer description that spans multiple lines and likely contains
-				examples and usage of using your application. For example:
+	Short: "CCJP - Another JSON Parser",
+	Long: `CCJP (Another JSON Parser) is a command-line tool designed to validate and parse JSON files.
+			It supports checking the correctness of JSON files and running predefined tests on JSON datasets. 
 
-				Cobra is a CLI library for Go that empowers applications.
-				This application is a tool to generate the needed files
-				to quickly create a Cobra application.`,
+			Features:
+			- Validate JSON syntax and structure.
+			- Run predefined tests to ensure JSON integrity.
 
+			Examples:
+			# Validate a single JSON file for correct JSON syntax
+			ccjp --json-parser path/to/file.json
+
+			# Run predefined tests (no additional arguments needed)
+			ccjp --run-tests
+
+			Usage:
+			ccjp [flags]
+			Flags:
+			-j, --json-parser   Validate a JSON file for syntax and structural correctness.
+			-t, --run-tests     Run predefined tests against JSON files located in predefined directories.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if jsonParser {
-			var inputFile *os.File
-
 			if len(args) < 1 {
-				cmd.PrintErr("Error: A file name is required as an argument.\n")
+				cmd.PrintErr("Error: A file name is required as an argument for JSON validation.\n")
 				cmd.Usage()
 				return
 			}
 
-			if inputFile == nil {
-				file, err := os.Open(args[0])
-				if err != nil {
-					cmd.PrintErrf("Error reading file: %v\n", err)
-					return
-				}
-
-				inputFile = file
+			file, err := os.Open(args[0])
+			if err != nil {
+				cmd.PrintErrf("Error reading file: %v\n", err)
+				return
 			}
+			defer file.Close()
 
 			currTime := time.Now()
-			if jsonParser {
-				_, err := RunParser(args[0])
-				if err != nil {
-					fmt.Println("Error parsing JSON:", err)
-					os.Exit(1)
-				}
-
-				fmt.Printf("json parsed successfully in %f seconds!\n", time.Since(currTime).Seconds())
+			_, err = RunParser(args[0])
+			if err != nil {
+				fmt.Println("Error parsing JSON:", err)
+				os.Exit(1)
 			}
 
-		}
-
-		if runTests {
+			fmt.Printf("JSON parsed successfully in %f seconds!\n", time.Since(currTime).Seconds())
+		} else if runTests {
 			currTime := time.Now()
 
 			tests_that_should_pass := "./test_data/pass"
-			RunTests(false, tests_that_should_pass)
-
 			tests_that_should_fail := "./test_data/fail"
+
+			RunTests(false, tests_that_should_pass)
 			RunTests(true, tests_that_should_fail)
 
-			fmt.Printf("tests ran successfully in %f seconds!\n", time.Since(currTime).Seconds())
+			fmt.Printf("Tests ran successfully in %f seconds!\n", time.Since(currTime).Seconds())
+		} else {
+			cmd.Usage()
 		}
 	},
+}
+
+func init() {
+	rootCmd.Flags().BoolVarP(&jsonParser, "json-parser", "j", false, "Enable JSON validation mode")
+	rootCmd.Flags().BoolVarP(&runTests, "run-tests", "t", false, "Run predefined tests without any additional arguments")
 }
 
 func RunParser(filepath string) (interface{}, error) {
@@ -115,9 +124,4 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
-}
-
-func init() {
-	rootCmd.Flags().BoolVarP(&jsonParser, "json-parser", "j", false, "Check if json is valid")
-	rootCmd.Flags().BoolVarP(&runTests, "run-tests", "t", false, "run tests against test json files")
 }
