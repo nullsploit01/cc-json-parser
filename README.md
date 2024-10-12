@@ -1,6 +1,6 @@
 # CCJP - Another JSON Parser
 
-This project is a custom implementation of a JSON parser. It was created as part of a coding challenge [here](https://codingchallenges.fyi/challenges/challenge-json). The utility is designed to validate and parse JSON files, as well as run predefined tests on JSON datasets to ensure their correctness.
+This project is a custom implementation of a JSON parser. It was created as part of a coding challenge [here](https://codingchallenges.fyi/challenges/challenge-json-parser). The utility is designed to validate and parse JSON files, as well as run predefined tests on JSON datasets to ensure their correctness.
 
 ## Features
 
