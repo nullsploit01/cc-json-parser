@@ -1,6 +1,9 @@
 package parser
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 // Define token types
 type TokenType int
@@ -49,7 +52,7 @@ func (l *Lexer) readChar() {
 	l.readPosition++
 }
 
-func (l *Lexer) NextToken() Token {
+func (l *Lexer) NextToken() (Token, error) {
 	var tok Token
 
 	l.skipWhitespace()
@@ -68,7 +71,12 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{TknComma, ","}
 	case '"':
 		tok.Type = TknString
-		tok.Literal = l.readString()
+		lit, err := l.readString()
+		if err != nil {
+			return Token{}, err
+		}
+
+		tok.Literal = lit
 	case 0:
 		tok.Literal = ""
 		tok.Type = TknEOF
@@ -76,21 +84,26 @@ func (l *Lexer) NextToken() Token {
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
 			tok.Type = l.lookupIdent(tok.Literal)
-			return tok
+			return tok, nil
 		} else if l.ch == '-' || isDigit(l.ch) {
 			tok.Type = TknNumber
-			tok.Literal = l.readNumber()
-			return tok
+			number, err := l.readNumber()
+
+			if err != nil {
+				return Token{}, err
+			}
+			tok.Literal = number
+			return tok, nil
 		} else {
 			tok = Token{TknInvalid, string(l.ch)}
 		}
 	}
 
 	l.readChar()
-	return tok
+	return tok, nil
 }
 
-func (l *Lexer) readString() string {
+func (l *Lexer) readString() (string, error) {
 	var result []byte
 	for {
 		l.readChar()
@@ -100,22 +113,13 @@ func (l *Lexer) readString() string {
 		if l.ch == '\\' {
 			l.readChar() // Escape sequence
 			switch l.ch {
-			case '"':
-				result = append(result, '"')
-			case '\\':
-				result = append(result, '\\')
-			case 'b':
-				result = append(result, '\b')
-			case 'f':
-				result = append(result, '\f')
-			case 'n':
-				result = append(result, '\n')
-			case 'r':
-				result = append(result, '\r')
-			case 't':
-				result = append(result, '\t')
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				handledChar, err := l.handleStandardEscape(l.ch)
+				if err != nil {
+					return "", err
+				}
+				result = append(result, handledChar)
 			case 'u':
-				// Handle Unicode sequence
 				hexValue := l.input[l.position+1 : l.position+5]
 				r, err := strconv.ParseInt(hexValue, 16, 32)
 				if err == nil {
@@ -124,16 +128,39 @@ func (l *Lexer) readString() string {
 				l.position += 4 // Move past the 4 hex digits
 				l.readPosition += 4
 			default:
-				// Handle invalid escape sequences
-				result = append(result, '\\', l.ch)
+				return "", fmt.Errorf("Illegal backslash escape: \\%c\n", l.ch)
 			}
+		} else if l.ch < ' ' { // Control characters should be escaped
+			return "", fmt.Errorf("unescaped control character: %#U", l.ch)
 		} else {
 			result = append(result, l.ch)
 		}
 	}
-	return string(result)
+	return string(result), nil
 }
 
+func (l *Lexer) handleStandardEscape(ch byte) (byte, error) {
+	switch ch {
+	case '"':
+		return '"', nil
+	case '\\':
+		return '\\', nil
+	case '/':
+		return '/', nil
+	case 'b':
+		return '\b', nil
+	case 'f':
+		return '\f', nil
+	case 'n':
+		return '\n', nil
+	case 'r':
+		return '\r', nil
+	case 't':
+		return '\t', nil
+	default:
+		return 0, fmt.Errorf("illegal escape character: '\\%c'", ch)
+	}
+}
 func (l *Lexer) skipWhitespace() {
 	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
 		l.readChar()
@@ -156,35 +183,44 @@ func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
 }
 
-func (l *Lexer) readNumber() string {
+func (l *Lexer) readNumber() (string, error) {
 	position := l.position
 
-	// Check if the number starts with a '-' sign
 	if l.ch == '-' {
-		l.readChar() // Move past the '-' sign
+		l.readChar()
 	}
 
-	// Read the main part of the number (digits and optional decimal point)
+	if l.ch == '0' {
+		nextChar := l.peekChar()
+		if isDigit(nextChar) && nextChar != '.' {
+			return "", fmt.Errorf("invalid number with leading zero at position %d", l.position)
+		}
+	}
+
 	for isDigit(l.ch) || l.ch == '.' {
 		l.readChar()
 	}
 
-	// Handle scientific notation (e.g., 1.23e+10)
 	if l.ch == 'e' || l.ch == 'E' {
-		l.readChar() // Move past the 'e' or 'E'
+		l.readChar()
 
-		// Handle the optional '+' or '-' sign in the exponent
 		if l.ch == '-' || l.ch == '+' {
 			l.readChar()
 		}
 
-		// Read the exponent part (must be digits)
 		for isDigit(l.ch) {
 			l.readChar()
 		}
 	}
 
-	return l.input[position:l.position]
+	return l.input[position:l.position], nil
+}
+
+func (l *Lexer) peekChar() byte {
+	if l.readPosition >= len(l.input) {
+		return 0
+	}
+	return l.input[l.readPosition]
 }
 
 func (l *Lexer) lookupIdent(ident string) TokenType {

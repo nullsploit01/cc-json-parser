@@ -76,7 +76,10 @@ func RunParser(filepath string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := parser.NewParser(string(data))
+	p, err := parser.NewParser(string(data))
+	if err != nil {
+		return nil, err
+	}
 	return p.Parse()
 }
 

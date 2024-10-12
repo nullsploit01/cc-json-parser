@@ -11,28 +11,53 @@ type Parser struct {
 	peekToken Token
 }
 
-func NewParser(data string) *Parser {
+func NewParser(data string) (*Parser, error) {
 	lexer := NewLexer(data)
 	p := &Parser{lexer: lexer}
-	p.nextToken()
-	p.nextToken()
-	return p
+	err := p.nextToken()
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.nextToken()
+
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (p *Parser) Parse() (interface{}, error) {
-	if p.curToken.Type == TknLeftBrace {
-		return p.parseObject()
-	} else if p.curToken.Type == TknLeftBracket {
-		return p.parseArray()
-	} else {
-		return nil, fmt.Errorf("expected '{' or '[', found '%s'", p.curToken.Literal)
+	var result interface{}
+	var err error
+
+	switch p.curToken.Type {
+	case TknLeftBrace:
+		result, err = p.parseObject()
+	case TknLeftBracket:
+		result, err = p.parseArray()
+	default:
+		err = fmt.Errorf("expected '{' or '[', found '%s'", p.curToken.Literal)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if p.curToken.Type != TknEOF {
+		return nil, fmt.Errorf("extra data found after JSON value: %s", p.curToken.Literal)
+	}
+
+	return result, nil
 }
 
 func (p *Parser) parseObject() (map[string]interface{}, error) {
 	object := make(map[string]interface{})
 
-	p.nextToken()
+	err := p.nextToken()
+	if err != nil {
+		return nil, err
+	}
 
 	for p.curToken.Type != TknRightBrace {
 		if p.curToken.Type != TknString {
@@ -40,13 +65,16 @@ func (p *Parser) parseObject() (map[string]interface{}, error) {
 		}
 
 		key := p.curToken.Literal
-		p.nextToken()
+		err := p.nextToken()
 
 		if p.curToken.Type != TknColon {
 			return nil, fmt.Errorf("expected colon after key, got '%s'", p.curToken.Literal)
 		}
 
-		p.nextToken()
+		err = p.nextToken()
+		if err != nil {
+			return nil, err
+		}
 
 		value, err := p.parseValue()
 		if err != nil {
@@ -56,7 +84,10 @@ func (p *Parser) parseObject() (map[string]interface{}, error) {
 		object[key] = value
 
 		if p.curToken.Type == TknComma {
-			p.nextToken()
+			err := p.nextToken()
+			if err != nil {
+				return nil, err
+			}
 			if p.curToken.Type == TknRightBrace {
 				return nil, fmt.Errorf("unexpected trailing comma before closing brace")
 			}
@@ -65,20 +96,31 @@ func (p *Parser) parseObject() (map[string]interface{}, error) {
 		}
 	}
 
-	p.nextToken()
+	err = p.nextToken()
+	if err != nil {
+		return nil, err
+	}
 	return object, nil
 }
 
-func (p *Parser) nextToken() {
+func (p *Parser) nextToken() error {
 	p.curToken = p.peekToken
-	p.peekToken = p.lexer.NextToken()
+	next, err := p.lexer.NextToken()
+	if err != nil {
+		return err
+	}
+	p.peekToken = next
+	return nil
 }
 
 func (p *Parser) parseValue() (interface{}, error) {
 	switch p.curToken.Type {
 	case TknString:
 		val := p.curToken.Literal
-		p.nextToken()
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
 		return val, nil
 
 	case TknNumber:
@@ -86,7 +128,10 @@ func (p *Parser) parseValue() (interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not parse %q as a number: %v", p.curToken.Literal, err)
 		}
-		p.nextToken()
+		err = p.nextToken()
+		if err != nil {
+			return nil, err
+		}
 		return num, nil
 
 	case TknLeftBrace:
@@ -105,11 +150,17 @@ func (p *Parser) parseValue() (interface{}, error) {
 
 	case TknBoolean:
 		boolean := p.curToken.Literal == "true"
-		p.nextToken()
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
 		return boolean, nil
 
 	case TknNull:
-		p.nextToken()
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
 		return nil, nil
 
 	default:
@@ -123,21 +174,26 @@ func (p *Parser) parseArray() ([]interface{}, error) {
 	p.nextToken()
 
 	for p.curToken.Type != TknRightBracket {
+		if p.curToken.Type == TknRightBracket {
+			break
+		}
+
 		value, err := p.parseValue()
 		if err != nil {
 			return nil, err
 		}
 
 		array = append(array, value)
-
 		if p.curToken.Type == TknComma {
 			p.nextToken()
+			if p.curToken.Type == TknRightBracket {
+				return nil, fmt.Errorf("expected value, got '%s'", p.curToken.Literal)
+			}
 		} else if p.curToken.Type != TknRightBracket {
 			return nil, fmt.Errorf("expected comma or closing bracket, got '%s'", p.curToken.Literal)
 		}
 	}
 
 	p.nextToken()
-
 	return array, nil
 }
