@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/nullsploit01/cc-json-parser/parser"
@@ -10,6 +12,7 @@ import (
 )
 
 var jsonParser bool
+var runTests bool
 
 var rootCmd = &cobra.Command{
 	Use:   "ccjp",
@@ -22,37 +25,86 @@ var rootCmd = &cobra.Command{
 				to quickly create a Cobra application.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		var inputFile *os.File
+		if jsonParser {
+			var inputFile *os.File
 
-		if len(args) < 1 {
-			cmd.PrintErr("Error: A file name is required as an argument.\n")
-			cmd.Usage()
-			return
-		}
-
-		if inputFile == nil {
-			file, err := os.Open(args[0])
-			if err != nil {
-				cmd.PrintErrf("Error reading file: %v\n", err)
+			if len(args) < 1 {
+				cmd.PrintErr("Error: A file name is required as an argument.\n")
+				cmd.Usage()
 				return
 			}
 
-			inputFile = file
+			if inputFile == nil {
+				file, err := os.Open(args[0])
+				if err != nil {
+					cmd.PrintErrf("Error reading file: %v\n", err)
+					return
+				}
+
+				inputFile = file
+			}
+
+			currTime := time.Now()
+			if jsonParser {
+				_, err := RunParser(args[0])
+				if err != nil {
+					fmt.Println("Error parsing JSON:", err)
+					os.Exit(1)
+				}
+
+				fmt.Printf("json parsed successfully in %f seconds!\n", time.Since(currTime).Seconds())
+			}
+
 		}
 
-		currTime := time.Now()
-		if jsonParser {
-			data, err := os.ReadFile(args[0])
-			p := parser.NewParser(string(data))
-			_, err = p.Parse()
-			if err != nil {
-				fmt.Println("Error parsing JSON:", err)
+		if runTests {
+			currTime := time.Now()
+
+			tests_that_should_pass := "./test_data/pass"
+			RunTests(false, tests_that_should_pass)
+
+			tests_that_should_fail := "./test_data/fail"
+			RunTests(true, tests_that_should_fail)
+
+			fmt.Printf("tests ran successfully in %f seconds!\n", time.Since(currTime).Seconds())
+		}
+	},
+}
+
+func RunParser(filepath string) (interface{}, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+	p := parser.NewParser(string(data))
+	return p.Parse()
+}
+
+func RunTests(shouldFail bool, testFilePath string) {
+	err := filepath.Walk(testFilePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			_, err := RunParser(path)
+			if err == nil && shouldFail {
+				log.Printf("Test failed for file %s: %v", path, err)
 				os.Exit(1)
 			}
 
-			fmt.Printf("json parsed successfully in %f seconds!\n", time.Since(currTime).Seconds())
+			if !shouldFail && err != nil {
+				log.Printf("Test failed for file %s: %v", path, err)
+				os.Exit(1)
+			}
 		}
-	},
+
+		return nil
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func Execute() {
@@ -64,4 +116,5 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().BoolVarP(&jsonParser, "json-parser", "j", false, "Check if json is valid")
+	rootCmd.Flags().BoolVarP(&runTests, "run-tests", "t", false, "run tests against test json files")
 }
